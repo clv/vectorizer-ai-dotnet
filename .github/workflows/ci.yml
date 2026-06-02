@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore Vectorizer.AI.sln
+
+      - name: Build
+        run: dotnet build Vectorizer.AI.sln --configuration Release --no-restore
+
+      - name: Pack
+        run: dotnet pack src/Vectorizer.AI/Vectorizer.AI.csproj --configuration Release --no-build --output artifacts

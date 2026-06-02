@@ -18,6 +18,9 @@
     <RepositoryType>git</RepositoryType>
     <PackageReleaseNotes>Initial public SDK release.</PackageReleaseNotes>
     <PackageTags>Vectorizer.AI;image vectorization;SVG;DXF;OpenAPI</PackageTags>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://vectorizer.ai/api/documentation#sdks</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="JsonSubTypes" Version="2.0.1" />
@@ -31,5 +34,8 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Web" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
