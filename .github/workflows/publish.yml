@@ -20,6 +20,15 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Verify tag version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          package_version="$(python -c 'import xml.etree.ElementTree as ET; print(ET.parse("src/Vectorizer.AI/Vectorizer.AI.csproj").findtext(".//Version"))')"
+          if [ "$package_version" != "$tag_version" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package version $package_version"
+            exit 1
+          fi
+
       - name: Restore
         run: dotnet restore Vectorizer.AI.sln
 
