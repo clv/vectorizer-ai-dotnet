@@ -1,0 +1,1222 @@
+openapi: 3.0.3
+info:
+  contact:
+    email: support@vectorizer.ai
+    name: Vectorizer.AI Support
+    url: https://vectorizer.ai/support
+  description: "OpenAPI 3.0 specification for the Vectorizer.AI image vectorization\
+    \ API. Authenticate with HTTP Basic auth, using your API Id as the username and\
+    \ your API Secret as the password."
+  license:
+    name: Proprietary
+    url: https://vectorizer.ai/policies/terms
+  termsOfService: https://vectorizer.ai/policies/terms
+  title: Vectorizer.AI API
+  version: 1.0.0
+servers:
+- description: Vectorizer.AI API v1 endpoint
+  url: https://api.vectorizer.ai/api/v1
+security:
+- basicAuth: []
+tags:
+- description: "Vectorize images, download retained results, and delete retained images."
+  name: vectorization
+- description: Account status and API credit information.
+  name: account
+paths:
+  /vectorize:
+    post:
+      description: "Submit exactly one image source as multipart form data: image,\
+        \ image.url, image.base64, or image.token. The response body is the generated\
+        \ SVG, EPS, PDF, DXF, or PNG file selected by output.file_format. Clients\
+        \ should allow an idle timeout of at least 180 seconds."
+      operationId: postVectorize
+      requestBody:
+        content:
+          multipart/form-data:
+            encoding:
+              image:
+                contentType: "image/png, image/jpeg, image/webp, image/gif, image/bmp,\
+                  \ image/tiff"
+                style: form
+            schema:
+              $ref: '#/components/schemas/VectorizeRequest'
+        description: Multipart form body. Dotted property names are literal form field
+          names.
+        required: true
+      responses:
+        "200":
+          content:
+            image/svg+xml:
+              schema:
+                format: binary
+                type: string
+            application/postscript:
+              schema:
+                format: binary
+                type: string
+            application/pdf:
+              schema:
+                format: binary
+                type: string
+            application/dxf:
+              schema:
+                format: binary
+                type: string
+            image/png:
+              schema:
+                format: binary
+                type: string
+          description: The vectorized image file.
+          headers:
+            Content-Disposition:
+              description: Suggested filename for the generated result.
+              explode: false
+              schema:
+                type: string
+              style: simple
+            Content-Encoding:
+              description: "May be gzip for SVG, EPS, or DXF responses when the request\
+                \ allows gzip encoding."
+              explode: false
+              schema:
+                enum:
+                - gzip
+                type: string
+              style: simple
+            X-Image-Token:
+              description: Returned by vectorize when policy.retention_days is greater
+                than 0.
+              explode: false
+              schema:
+                type: string
+              style: simple
+            X-Credits-Charged:
+              description: Credits charged for the request. This is 0 for test requests.
+              explode: false
+              schema:
+                format: double
+                type: number
+              style: simple
+            X-Credits-Calculated:
+              description: Returned for test requests to show the credits that would
+                have been charged for the equivalent non-test request.
+              explode: false
+              schema:
+                format: double
+                type: number
+              style: simple
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "Invalid request parameters, image input, URL fetch, or Image\
+            \ Token."
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Missing or invalid API credentials.
+          headers:
+            WWW-Authenticate:
+              description: HTTP Basic authentication challenge returned with 401 responses.
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "402":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "The account does not have an API subscription, is past due,\
+            \ or is out of credits."
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "The uploaded image, fetched image, or requested PNG output\
+            \ is too large."
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Rate limit exceeded. Back off before retrying.
+          headers:
+            Retry-After:
+              description: "Number of seconds to wait before retrying, when provided."
+              explode: false
+              schema:
+                format: int32
+                type: integer
+              style: simple
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unexpected internal error.
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Temporary overload or internal processing timeout. Retry later.
+          headers:
+            Retry-After:
+              description: "Number of seconds to wait before retrying, when provided."
+              explode: false
+              schema:
+                format: int32
+                type: integer
+              style: simple
+      summary: Vectorize an image
+      tags:
+      - vectorization
+      x-group-parameters: true
+  /download:
+    post:
+      description: "Download a production result from a retained Image Token, optionally\
+        \ changing output.file_format and other output options. Include receipt when\
+        \ downloading additional formats after upgrading a preview result."
+      operationId: postDownload
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DownloadRequest'
+        description: Multipart form body. The image.token field is required.
+        required: true
+      responses:
+        "200":
+          content:
+            image/svg+xml:
+              schema:
+                format: binary
+                type: string
+            application/postscript:
+              schema:
+                format: binary
+                type: string
+            application/pdf:
+              schema:
+                format: binary
+                type: string
+            application/dxf:
+              schema:
+                format: binary
+                type: string
+            image/png:
+              schema:
+                format: binary
+                type: string
+          description: The requested output file.
+          headers:
+            Content-Disposition:
+              description: Suggested filename for the generated result.
+              explode: false
+              schema:
+                type: string
+              style: simple
+            Content-Encoding:
+              description: "May be gzip for SVG, EPS, or DXF responses when the request\
+                \ allows gzip encoding."
+              explode: false
+              schema:
+                enum:
+                - gzip
+                type: string
+              style: simple
+            X-Receipt:
+              description: Returned when a preview Image Token is upgraded to a production
+                result; use it for discounted additional format downloads.
+              explode: false
+              schema:
+                type: string
+              style: simple
+            X-Credits-Charged:
+              description: Credits charged for the request. This is 0 for test requests.
+              explode: false
+              schema:
+                format: double
+                type: number
+              style: simple
+            X-Credits-Calculated:
+              description: Returned for test requests to show the credits that would
+                have been charged for the equivalent non-test request.
+              explode: false
+              schema:
+                format: double
+                type: number
+              style: simple
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "Invalid request parameters, image input, URL fetch, or Image\
+            \ Token."
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Missing or invalid API credentials.
+          headers:
+            WWW-Authenticate:
+              description: HTTP Basic authentication challenge returned with 401 responses.
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "402":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "The account does not have an API subscription, is past due,\
+            \ or is out of credits."
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "The uploaded image, fetched image, or requested PNG output\
+            \ is too large."
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Rate limit exceeded. Back off before retrying.
+          headers:
+            Retry-After:
+              description: "Number of seconds to wait before retrying, when provided."
+              explode: false
+              schema:
+                format: int32
+                type: integer
+              style: simple
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unexpected internal error.
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Temporary overload or internal processing timeout. Retry later.
+          headers:
+            Retry-After:
+              description: "Number of seconds to wait before retrying, when provided."
+              explode: false
+              schema:
+                format: int32
+                type: integer
+              style: simple
+      summary: Download a retained result
+      tags:
+      - vectorization
+      x-group-parameters: true
+  /delete:
+    post:
+      description: Delete a retained image and result before its retention period
+        expires.
+      operationId: postDelete
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeleteImageRequest'
+        description: Multipart form body. The image.token field is required.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteImageResponse'
+          description: The Image Token was deleted.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "Invalid request parameters, image input, URL fetch, or Image\
+            \ Token."
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Missing or invalid API credentials.
+          headers:
+            WWW-Authenticate:
+              description: HTTP Basic authentication challenge returned with 401 responses.
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "402":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "The account does not have an API subscription, is past due,\
+            \ or is out of credits."
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "The uploaded image, fetched image, or requested PNG output\
+            \ is too large."
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Rate limit exceeded. Back off before retrying.
+          headers:
+            Retry-After:
+              description: "Number of seconds to wait before retrying, when provided."
+              explode: false
+              schema:
+                format: int32
+                type: integer
+              style: simple
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unexpected internal error.
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Temporary overload or internal processing timeout. Retry later.
+          headers:
+            Retry-After:
+              description: "Number of seconds to wait before retrying, when provided."
+              explode: false
+              schema:
+                format: int32
+                type: integer
+              style: simple
+      summary: Delete a retained image
+      tags:
+      - vectorization
+      x-group-parameters: true
+  /account:
+    get:
+      description: Fetch the subscription state and remaining API credits for the
+        authenticated account.
+      operationId: getAccountStatus
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountStatusResponse'
+          description: Account status for the authenticated API credentials.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "Invalid request parameters, image input, URL fetch, or Image\
+            \ Token."
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Missing or invalid API credentials.
+          headers:
+            WWW-Authenticate:
+              description: HTTP Basic authentication challenge returned with 401 responses.
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "402":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "The account does not have an API subscription, is past due,\
+            \ or is out of credits."
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "The uploaded image, fetched image, or requested PNG output\
+            \ is too large."
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Rate limit exceeded. Back off before retrying.
+          headers:
+            Retry-After:
+              description: "Number of seconds to wait before retrying, when provided."
+              explode: false
+              schema:
+                format: int32
+                type: integer
+              style: simple
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unexpected internal error.
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Temporary overload or internal processing timeout. Retry later.
+          headers:
+            Retry-After:
+              description: "Number of seconds to wait before retrying, when provided."
+              explode: false
+              schema:
+                format: int32
+                type: integer
+              style: simple
+      summary: Get account status
+      tags:
+      - account
+      x-group-parameters: true
+components:
+  schemas:
+    VectorizeRequest:
+      additionalProperties: false
+      description: Multipart form fields for vectorizing an image. Field names containing
+        dots are literal form field names.
+      nullable: true
+      oneOf: []
+      properties:
+        image:
+          description: "Binary file upload of the image to vectorize. Accepts .bmp,\
+            \ .gif, .jpeg, .png, or .tiff files."
+          format: binary
+          type: string
+        image.url:
+          description: URL to fetch the input image from for vectorization.
+          format: uri
+          type: string
+        image.base64:
+          description: Base64-encoded string of the input image. Maximum size 1 megabyte.
+          format: byte
+          type: string
+        image.token:
+          description: An Image Token returned from an earlier vectorization call
+            with policy.retention_days > 0.
+          type: string
+        mode:
+          default: production
+          description: "Mode of operation, useful during integration work."
+          enum:
+          - production
+          - preview
+          - test
+          - test_preview
+          format: string
+          type: string
+        input.max_pixels:
+          default: 2097252
+          description: Maximum input image size (width × height in pixels) before
+            resizing.
+          format: int32
+          maximum: 3145828
+          minimum: 100
+          type: integer
+        policy.retention_days:
+          default: 0
+          description: Number of days to retain the uploaded image and its results
+            for re-use.
+          format: int32
+          maximum: 30
+          minimum: 0
+          type: integer
+        processing.max_colors:
+          default: 0
+          description: Maximum number of colors allowed in the vectorization result.
+            0 means unlimited.
+          format: int32
+          maximum: 256
+          minimum: 0
+          type: integer
+        processing.shapes.min_area_px:
+          default: 0.125
+          description: Minimum shape area (in pixels) to keep in the result; smaller
+            shapes are discarded.
+          format: float
+          maximum: 100
+          minimum: 0
+          type: number
+        processing.palette:
+          description: "Palette remapping and color control, using '[color][-> remapped][~\
+            \ tolerance];' format."
+          example: '#FF0000;#00FF00;#0000FF;'
+          type: string
+        processing.color_profile.input:
+          default: ignore
+          description: How to handle ICC profiles embedded in input images.
+          enum:
+          - ignore
+          - preserve
+          format: string
+          type: string
+        processing.color_profile.output:
+          default: ignore
+          description: "ICC profile behavior for output files: preserve, ignore."
+          type: string
+        processing.parameterizedShapes.ellipse.general.enabled:
+          default: true
+          description: Enable detection and parameterization of this parameterized
+            shape type.
+          type: boolean
+        processing.parameterizedShapes.ellipse.circle.enabled:
+          default: true
+          description: Enable detection and parameterization of this parameterized
+            shape type.
+          type: boolean
+        processing.parameterizedShapes.triangle.general.enabled:
+          default: true
+          description: Enable detection and parameterization of this parameterized
+            shape type.
+          type: boolean
+        processing.parameterizedShapes.triangle.isosceles.enabled:
+          default: true
+          description: Enable detection and parameterization of this parameterized
+            shape type.
+          type: boolean
+        processing.parameterizedShapes.quadrilateral.general.enabled:
+          default: true
+          description: Enable detection and parameterization of this parameterized
+            shape type.
+          type: boolean
+        processing.parameterizedShapes.quadrilateral.rectangle.enabled:
+          default: true
+          description: Enable detection and parameterization of this parameterized
+            shape type.
+          type: boolean
+        processing.parameterizedShapes.quadrilateral.bullet.enabled:
+          default: true
+          description: Enable detection and parameterization of this parameterized
+            shape type.
+          type: boolean
+        processing.parameterizedShapes.star.N3.enabled:
+          default: true
+          description: Enable detection and parameterization of this parameterized
+            shape type.
+          type: boolean
+        processing.parameterizedShapes.star.N4.enabled:
+          default: true
+          description: Enable detection and parameterization of this parameterized
+            shape type.
+          type: boolean
+        processing.parameterizedShapes.star.N5.enabled:
+          default: true
+          description: Enable detection and parameterization of this parameterized
+            shape type.
+          type: boolean
+        processing.parameterizedShapes.star.N6.enabled:
+          default: true
+          description: Enable detection and parameterization of this parameterized
+            shape type.
+          type: boolean
+        output.file_format:
+          default: svg
+          description: Output file format to generate.
+          enum:
+          - svg
+          - eps
+          - pdf
+          - dxf
+          - png
+          format: string
+          type: string
+        output.shape_stacking:
+          default: cutouts
+          description: Whether shapes are cut out of each other or stacked atop each
+            other.
+          enum:
+          - cutouts
+          - stacked
+          format: string
+          type: string
+        output.group_by:
+          default: none
+          description: Grouping of shapes in output.
+          enum:
+          - none
+          - color
+          - parent
+          - layer
+          format: string
+          type: string
+        output.draw_style:
+          default: fill_shapes
+          description: How shapes are rendered.
+          enum:
+          - fill_shapes
+          - stroke_shapes
+          - stroke_edges
+          format: string
+          type: string
+        output.strokes.stroke_width:
+          default: 1
+          description: Width of stroke for shape outlines (when enabled).
+          format: float
+          maximum: 5
+          minimum: 0
+          type: number
+        output.strokes.non_scaling_stroke:
+          default: true
+          description: Use non-scaling strokes when drawing shape outlines.
+          type: boolean
+        output.strokes.use_override_color:
+          default: false
+          description: Override shape color with a specific color.
+          type: boolean
+        output.strokes.override_color:
+          default: '#000000'
+          description: "Color value to override shape stroke color if enabled. Must\
+            \ be in '#RRGGBB' or 'rgba(r,g,b,a)' format."
+          example: '#FF00FF'
+          type: string
+        output.gap_filler.enabled:
+          default: true
+          description: Enable filling small visual gaps caused by vector rendering
+            artifacts.
+          type: boolean
+        output.gap_filler.non_scaling_stroke:
+          default: true
+          description: Use non-scaling strokes for gap filling.
+          type: boolean
+        output.gap_filler.clip:
+          default: false
+          description: Clip gap filler strokes to shape bounds when stacking shapes.
+          type: boolean
+        output.gap_filler.stroke_width:
+          default: 2
+          description: Width of the gap filler strokes (in output units).
+          format: float
+          maximum: 5
+          minimum: 0
+          type: number
+        output.parameterized_shapes.flatten:
+          default: false
+          description: "Whether to flatten detected circles, rectangles, and stars\
+            \ to curves."
+          type: boolean
+        output.curves.line_fit_tolerance:
+          default: 0.1
+          description: Maximum allowed error when approximating curves with line segments.
+          format: float
+          maximum: 1
+          minimum: 0.001
+          type: number
+        output.curves.allowed.quadratic_bezier:
+          default: true
+          description: Allow quadratic Bézier curves in the output.
+          type: boolean
+        output.curves.allowed.cubic_bezier:
+          default: true
+          description: Allow cubic Bézier curves in the output.
+          type: boolean
+        output.curves.allowed.circular_arc:
+          default: true
+          description: Allow circular arcs in the output.
+          type: boolean
+        output.curves.allowed.elliptical_arc:
+          default: true
+          description: Allow elliptical arcs in the output.
+          type: boolean
+        output.svg.version:
+          default: svg_1_1
+          description: SVG version to declare in the SVG output.
+          enum:
+          - svg_1_0
+          - svg_1_1
+          - svg_tiny_1_2
+          format: string
+          type: string
+        output.svg.fixed_size:
+          default: false
+          description: Whether to fix the SVG dimensions in the output file.
+          type: boolean
+        output.svg.adobe_compatibility_mode:
+          default: false
+          description: Enable Illustrator compatibility by disabling unsupported SVG
+            features.
+          type: boolean
+        output.pdf.version:
+          default: PDF_1_4
+          description: PDF version to generate for PDF output.
+          enum:
+          - PDF_1_4
+          format: string
+          type: string
+        output.pdf.compression_mode:
+          default: Deflate
+          description: Compression method to apply to PDF output streams.
+          enum:
+          - None
+          - Deflate
+          format: string
+          type: string
+        output.eps.version:
+          default: PS_3_0_EPSF_3_0
+          description: EPS format version for EPS output.
+          enum:
+          - PS_3_0_EPSF_3_0
+          format: string
+          type: string
+        output.dxf.compatibility_level:
+          default: lines_and_arcs
+          description: Level of primitive support for DXF output.
+          enum:
+          - lines_only
+          - lines_and_arcs
+          - lines_arcs_and_splines
+          format: string
+          type: string
+        output.bitmap.anti_aliasing_mode:
+          default: anti_aliased
+          description: Anti-aliasing mode for bitmap (PNG) output.
+          enum:
+          - anti_aliased
+          - aliased
+          format: string
+          type: string
+        output.size.scale:
+          description: Overall uniform scaling factor for the output image.
+          example: 1
+          format: float
+          maximum: 1000
+          minimum: 0
+          type: number
+        output.size.width:
+          description: "Output width, in the selected unit (see output.size.unit)."
+          example: 100
+          format: float
+          maximum: 1000000000000
+          minimum: 0
+          type: number
+        output.size.height:
+          description: "Output height, in the selected unit (see output.size.unit)."
+          example: 100
+          format: float
+          maximum: 1000000000000
+          minimum: 0
+          type: number
+        output.size.unit:
+          default: none
+          description: Measurement unit for output dimensions.
+          enum:
+          - none
+          - px
+          - pt
+          - in
+          - cm
+          - mm
+          format: string
+          type: string
+        output.size.aspect_ratio:
+          default: preserve_inset
+          description: How to preserve or stretch aspect ratio.
+          enum:
+          - preserve_inset
+          - preserve_overflow
+          - stretch
+          format: string
+          type: string
+        output.size.align_x:
+          default: 0.5
+          description: "Horizontal alignment (0.0 = left, 0.5 = center, 1.0 = right)\
+            \ when aspect ratio is preserved."
+          format: float
+          maximum: 1
+          minimum: 0
+          type: number
+        output.size.align_y:
+          default: 0.5
+          description: "Vertical alignment (0.0 = top, 0.5 = center, 1.0 = bottom)\
+            \ when aspect ratio is preserved."
+          format: float
+          maximum: 1
+          minimum: 0
+          type: number
+        output.size.input_dpi:
+          description: Override the detected DPI of the input image for size computations.
+          example: 300
+          format: float
+          maximum: 1000000
+          minimum: 1
+          type: number
+        output.size.output_dpi:
+          description: DPI setting for the output image.
+          example: 300
+          format: float
+          maximum: 1000000
+          minimum: 1
+          type: number
+      type: object
+    DownloadRequest:
+      additionalProperties: false
+      description: Multipart form fields for downloading a retained result. The image.token
+        field is required.
+      properties:
+        image.token:
+          description: Image Token returned from a vectorize request with policy.retention_days
+            > 0.
+          type: string
+        receipt:
+          description: Receipt returned in the X-Receipt response header when upgrading
+            a preview result to production. Include it when downloading additional
+            formats from that upgraded preview.
+          type: string
+        output.file_format:
+          default: svg
+          description: Output file format to generate.
+          enum:
+          - svg
+          - eps
+          - pdf
+          - dxf
+          - png
+          format: string
+          type: string
+        output.shape_stacking:
+          default: cutouts
+          description: Whether shapes are cut out of each other or stacked atop each
+            other.
+          enum:
+          - cutouts
+          - stacked
+          format: string
+          type: string
+        output.group_by:
+          default: none
+          description: Grouping of shapes in output.
+          enum:
+          - none
+          - color
+          - parent
+          - layer
+          format: string
+          type: string
+        output.draw_style:
+          default: fill_shapes
+          description: How shapes are rendered.
+          enum:
+          - fill_shapes
+          - stroke_shapes
+          - stroke_edges
+          format: string
+          type: string
+        output.strokes.stroke_width:
+          default: 1
+          description: Width of stroke for shape outlines (when enabled).
+          format: float
+          maximum: 5
+          minimum: 0
+          type: number
+        output.strokes.non_scaling_stroke:
+          default: true
+          description: Use non-scaling strokes when drawing shape outlines.
+          type: boolean
+        output.strokes.use_override_color:
+          default: false
+          description: Override shape color with a specific color.
+          type: boolean
+        output.strokes.override_color:
+          default: '#000000'
+          description: "Color value to override shape stroke color if enabled. Must\
+            \ be in '#RRGGBB' or 'rgba(r,g,b,a)' format."
+          example: '#FF00FF'
+          type: string
+        output.gap_filler.enabled:
+          default: true
+          description: Enable filling small visual gaps caused by vector rendering
+            artifacts.
+          type: boolean
+        output.gap_filler.non_scaling_stroke:
+          default: true
+          description: Use non-scaling strokes for gap filling.
+          type: boolean
+        output.gap_filler.clip:
+          default: false
+          description: Clip gap filler strokes to shape bounds when stacking shapes.
+          type: boolean
+        output.gap_filler.stroke_width:
+          default: 2
+          description: Width of the gap filler strokes (in output units).
+          format: float
+          maximum: 5
+          minimum: 0
+          type: number
+        output.parameterized_shapes.flatten:
+          default: false
+          description: "Whether to flatten detected circles, rectangles, and stars\
+            \ to curves."
+          type: boolean
+        output.curves.line_fit_tolerance:
+          default: 0.1
+          description: Maximum allowed error when approximating curves with line segments.
+          format: float
+          maximum: 1
+          minimum: 0.001
+          type: number
+        output.curves.allowed.quadratic_bezier:
+          default: true
+          description: Allow quadratic Bézier curves in the output.
+          type: boolean
+        output.curves.allowed.cubic_bezier:
+          default: true
+          description: Allow cubic Bézier curves in the output.
+          type: boolean
+        output.curves.allowed.circular_arc:
+          default: true
+          description: Allow circular arcs in the output.
+          type: boolean
+        output.curves.allowed.elliptical_arc:
+          default: true
+          description: Allow elliptical arcs in the output.
+          type: boolean
+        output.svg.version:
+          default: svg_1_1
+          description: SVG version to declare in the SVG output.
+          enum:
+          - svg_1_0
+          - svg_1_1
+          - svg_tiny_1_2
+          format: string
+          type: string
+        output.svg.fixed_size:
+          default: false
+          description: Whether to fix the SVG dimensions in the output file.
+          type: boolean
+        output.svg.adobe_compatibility_mode:
+          default: false
+          description: Enable Illustrator compatibility by disabling unsupported SVG
+            features.
+          type: boolean
+        output.pdf.version:
+          default: PDF_1_4
+          description: PDF version to generate for PDF output.
+          enum:
+          - PDF_1_4
+          format: string
+          type: string
+        output.pdf.compression_mode:
+          default: Deflate
+          description: Compression method to apply to PDF output streams.
+          enum:
+          - None
+          - Deflate
+          format: string
+          type: string
+        output.eps.version:
+          default: PS_3_0_EPSF_3_0
+          description: EPS format version for EPS output.
+          enum:
+          - PS_3_0_EPSF_3_0
+          format: string
+          type: string
+        output.dxf.compatibility_level:
+          default: lines_and_arcs
+          description: Level of primitive support for DXF output.
+          enum:
+          - lines_only
+          - lines_and_arcs
+          - lines_arcs_and_splines
+          format: string
+          type: string
+        output.bitmap.anti_aliasing_mode:
+          default: anti_aliased
+          description: Anti-aliasing mode for bitmap (PNG) output.
+          enum:
+          - anti_aliased
+          - aliased
+          format: string
+          type: string
+        output.size.scale:
+          description: Overall uniform scaling factor for the output image.
+          example: 1
+          format: float
+          maximum: 1000
+          minimum: 0
+          type: number
+        output.size.width:
+          description: "Output width, in the selected unit (see output.size.unit)."
+          example: 100
+          format: float
+          maximum: 1000000000000
+          minimum: 0
+          type: number
+        output.size.height:
+          description: "Output height, in the selected unit (see output.size.unit)."
+          example: 100
+          format: float
+          maximum: 1000000000000
+          minimum: 0
+          type: number
+        output.size.unit:
+          default: none
+          description: Measurement unit for output dimensions.
+          enum:
+          - none
+          - px
+          - pt
+          - in
+          - cm
+          - mm
+          format: string
+          type: string
+        output.size.aspect_ratio:
+          default: preserve_inset
+          description: How to preserve or stretch aspect ratio.
+          enum:
+          - preserve_inset
+          - preserve_overflow
+          - stretch
+          format: string
+          type: string
+        output.size.align_x:
+          default: 0.5
+          description: "Horizontal alignment (0.0 = left, 0.5 = center, 1.0 = right)\
+            \ when aspect ratio is preserved."
+          format: float
+          maximum: 1
+          minimum: 0
+          type: number
+        output.size.align_y:
+          default: 0.5
+          description: "Vertical alignment (0.0 = top, 0.5 = center, 1.0 = bottom)\
+            \ when aspect ratio is preserved."
+          format: float
+          maximum: 1
+          minimum: 0
+          type: number
+        output.size.input_dpi:
+          description: Override the detected DPI of the input image for size computations.
+          example: 300
+          format: float
+          maximum: 1000000
+          minimum: 1
+          type: number
+        output.size.output_dpi:
+          description: DPI setting for the output image.
+          example: 300
+          format: float
+          maximum: 1000000
+          minimum: 1
+          type: number
+      required:
+      - image.token
+      type: object
+    DeleteImageRequest:
+      additionalProperties: false
+      description: Multipart form fields for deleting a retained image and result.
+      properties:
+        image.token:
+          description: Image Token to delete before its retention period expires.
+          type: string
+      required:
+      - image.token
+      type: object
+    DeleteImageResponse:
+      example:
+        success: true
+      properties:
+        success:
+          description: Always true when the Image Token has been deleted.
+          type: boolean
+      required:
+      - success
+      type: object
+    AccountStatusResponse:
+      example:
+        credits: 0.8008281904610115
+        subscriptionPlan: subscriptionPlan
+        subscriptionState: subscriptionState
+      properties:
+        subscriptionPlan:
+          description: "The subscription plan currently associated with the account,\
+            \ or 'none'."
+          type: string
+        subscriptionState:
+          description: "The current subscription state: 'active', 'pastDue', or 'ended'."
+          type: string
+        credits:
+          description: "The number of API credits left. Can be fractional, so parse\
+            \ as a double-precision number."
+          format: double
+          type: number
+      required:
+      - credits
+      - subscriptionPlan
+      - subscriptionState
+      type: object
+    ErrorResponse:
+      example:
+        error:
+          code: 6
+          message: message
+          status: 0
+        dataReceived:
+          key: ""
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorResponse_error'
+        dataReceived:
+          additionalProperties: true
+          description: Echo of the submitted request data when available. File uploads
+            are summarized instead of echoed.
+          nullable: true
+          type: object
+      required:
+      - dataReceived
+      - error
+      type: object
+    ErrorResponse_error:
+      example:
+        code: 6
+        message: message
+        status: 0
+      properties:
+        status:
+          format: int32
+          type: integer
+        code:
+          format: int32
+          type: integer
+        message:
+          type: string
+      required:
+      - code
+      - message
+      - status
+      type: object
+  securitySchemes:
+    basicAuth:
+      scheme: basic
+      type: http
+
